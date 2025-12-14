@@ -1,10 +1,14 @@
 import "reflect-metadata";
 import express from "express";
 import { initializeDatabase, AppDataSource } from "./data-source";
+import { StatusCodes } from "http-status-codes";
+import { In } from "typeorm";
 
 // Aplikacja Express
 const app = express();
 const PORT = 3000;
+
+app.use(express.json());
 
 app
   .route("/products")
@@ -12,7 +16,7 @@ app
     AppDataSource.getRepository("Product")
       .find()
       .then(products => {
-        res.json(products);
+        res.status(StatusCodes.OK).json(products);
       });
   })
   .post(express.json(), (req: express.Request, res: express.Response) => {
@@ -21,12 +25,10 @@ app
     AppDataSource.getRepository("Product")
       .save(newProduct)
       .then(savedProduct => {
-        //MAGIC NUMBERS
-        res.status(201).json(savedProduct);
+        res.status(StatusCodes.CREATED).json(savedProduct);
       })
       .catch(error => {
-        //MAGIC NUMBERS
-        res.status(500).json({ message: "Error saving product", error: error });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error saving product", error: error });
       });
   });
 
@@ -36,7 +38,7 @@ app
     AppDataSource.getRepository("Orders")
       .find({ relations: ["orderItems", "orderItems.product", "orderState"] })
       .then(orders => {
-        res.json(orders);
+        res.status(StatusCodes.OK).json(orders);
       });
   })
   .post((req: express.Request, res: express.Response) => {
@@ -46,12 +48,10 @@ app
     AppDataSource.getRepository("Orders")
       .save(newOrder)
       .then(savedOrder => {
-        //MAGIC NUMBERS
-        res.status(201).json(savedOrder);
+        res.status(StatusCodes.CREATED).json(savedOrder);
       })
       .catch(error => {
-        //MAGIC NUMBERS
-        res.status(500).json({ message: "Error saving order", error: error });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error saving order", error: error });
       });
   });
 
@@ -61,10 +61,9 @@ app.get("/products/:id", (req: express.Request, res: express.Response) => {
     .findOneBy({ id: productId })
     .then(product => {
       if (product) {
-        res.json(product);
+        res.status(StatusCodes.OK).json(product);
       } else {
-        //Magic Numbers do zmiany
-        res.status(404).json({ message: "Product not found" });
+        res.status(StatusCodes.NOT_FOUND).json({ message: "Product not found" });
       }
     });
 });
@@ -73,7 +72,7 @@ app.get("/categories", (req: express.Request, res: express.Response) => {
   AppDataSource.getRepository("Category")
     .find()
     .then(category => {
-      res.json(category);
+      res.status(StatusCodes.OK).json(category);
     });
 });
 // Asynchroniczna funkcja główna
