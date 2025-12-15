@@ -1,0 +1,54 @@
+import { NextFunction, Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
+import jwt from "jsonwebtoken";
+import { UserRole } from "./entity/User";
+
+// Klucz pewnie trzeba będzie przenieść do zmiennych środowiskowych
+const JWT_SECRET_KEY = "your_secret_key";
+
+export const generateJwt = (
+  payload: object,
+  expiresIn: string | number = "1h"
+) => {
+  return jwt.sign(payload, JWT_SECRET_KEY, { expiresIn } as any);
+};
+
+const verifyJwt = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res
+      .status(StatusCodes.UNAUTHORIZED)
+      .json({ message: "No token provided" });
+  }
+  const [type, token] = authHeader.split(" ");
+  if (type !== "Bearer") {
+    return res
+      .status(StatusCodes.UNAUTHORIZED)
+      .json({ message: "Invalid token format" });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET_KEY);
+    (req as any).user = decoded;
+    next();
+  } catch (err) {
+    return res
+      .status(StatusCodes.UNAUTHORIZED)
+      .json({ message: "Invalid token" });
+  }
+};
+
+export const requireRole =
+  (role: UserRole) => (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+
+    if (!user || user.role !== role) {
+      if (user.role !== UserRole.Admin) {
+        return res
+          .status(StatusCodes.FORBIDDEN)
+          .json({ message: "Insufficient permissions" });
+      }
+    }
+    next();
+  };
+
+export default verifyJwt;

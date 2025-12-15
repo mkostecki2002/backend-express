@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
-import { Orders } from "./Order";
+import { Order } from "./Order";
 import { Product } from "./Product";
 
-@Entity()
+@Entity({ name: "order_items" })
 export class OrderItem {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -16,11 +16,11 @@ export class OrderItem {
   @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
   discount!: number | null;
 
-  @ManyToOne(() => Orders, order => order.id, {
+  @ManyToOne(() => Order, order => order.id, {
     nullable: false,
     onDelete: "CASCADE",
   })
-  order!: Orders;
+  order!: Order;
 
   @ManyToOne(() => Product, product => product.id, {
     nullable: false,

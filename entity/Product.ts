@@ -1,16 +1,7 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  OneToMany,
-} from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
 import { Category } from "./Category";
-import { OrderItem } from "./OrderItem";
 
-//Produkt: nazwa, opis (oba pola to tekst, opis może być w formie HTML), cena jednostkowa, waga jednostkowa (liczby z przecinkiem), kategoria towaru (jedno obowiązkowe odniesienie do encji Kategoria)
-
-@Entity()
+@Entity({ name: "products" })
 export class Product {
   @PrimaryGeneratedColumn()
   id!: number;
