@@ -6,7 +6,7 @@ import { Category } from "./entity/Category";
 import { Product } from "./entity/Product";
 import { Orders } from "./entity/Order";
 import { OrderItem } from "./entity/OrderItem";
-import { OrderState, OrderStateName } from "./entity/OrderState";
+import { OrderState, OrderStateName, OrderStateFlow } from "./entity/OrderState";
 
 // Aplikacja Express
 const app = express();
@@ -35,17 +35,32 @@ app
     .post(async (req: express.Request, res: express.Response) => {
     const product = req.body as Product;
 
-    //puste pola
+    //puste pole nazwa
     if (!product.name || product.name.trim() === "") {
       return res
         .status(StatusCodes.BAD_REQUEST)
         .json({ message: "Nazwa produktu nie może być pusta." });
     }
 
+    //puste pole opis
     if (!product.description || product.description.trim() === "") {
       return res
         .status(StatusCodes.BAD_REQUEST)
         .json({ message: "Opis produktu nie może być pusty." });
+    }
+
+    //walidacja ceny
+    if (product.priceUnit === undefined || typeof product.priceUnit !== "number" || product.priceUnit <= 0) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Cena produktu musi być liczbą większą od 0." });
+    }
+
+    //walidacja wagi
+    if (product.weightUnit === undefined || typeof product.weightUnit !== "number" || product.weightUnit <= 0) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Waga produktu musi być liczbą większą od 0." });
     }
 
     try {
@@ -114,22 +129,30 @@ app.put("/products/:id", async (req: express.Request, res: express.Response) => 
 
     const updatedData = req.body as Partial<Product>;
 
-    if (
-      updatedData.name !== undefined &&
-      (typeof updatedData.name !== "string" || updatedData.name.trim() === "")
-    ) {
+    if (updatedData.name !== undefined && (typeof updatedData.name !== "string" || updatedData.name.trim() === "")) {
       return res
         .status(StatusCodes.BAD_REQUEST)
         .json({ message: "Nazwa produktu nie może być pusta." });
     }
 
-    if (
-      updatedData.description !== undefined &&
-      (typeof updatedData.description !== "string" || updatedData.description.trim() === "")
-    ) {
+    if (updatedData.description !== undefined && (typeof updatedData.description !== "string" || updatedData.description.trim() === "")) {
       return res
         .status(StatusCodes.BAD_REQUEST)
         .json({ message: "Opis produktu nie może być pusty." });
+    }
+
+    //walidacja zmiana ceny
+    if (updatedData.priceUnit !== undefined && (typeof updatedData.priceUnit !== "number" || updatedData.priceUnit <= 0)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Cena produktu musi być liczbą większą od 0." });
+    }
+
+    //walidacja zmiana wagi
+    if (updatedData.weightUnit !== undefined && (typeof updatedData.weightUnit !== "number" || updatedData.weightUnit <= 0)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Waga produktu musi być liczbą większą od 0." });
     }
 
     const updatedProduct = repository.merge(existingProduct, updatedData);
@@ -163,8 +186,45 @@ app
         });
       });
   })
-  .post((req: express.Request, res: express.Response) => {
+
+  .post(async (req: express.Request, res: express.Response) => {
     const order = req.body as Orders;
+    const productRepository = AppDataSource.getRepository(Product);
+
+    //walidacja pola username
+    if (!order.username || order.username.trim() === "") {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Pole username nie może być puste." });
+    }
+
+    //pusty mail
+    if (!order.email || order.email.trim() === "") {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Pole email nie może być puste." });
+    }
+
+    //format maila
+    if (!/^\S+@\S+\.\S+$/.test(order.email)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Pole email musi zawierać poprawny adres e-mail." });
+    }
+
+    //pusty telefon
+    if (!order.phoneNumber || order.phoneNumber.trim() === "") {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Pole phoneNumber nie może być puste." });
+    }
+
+    //format telefonu
+    if (!/^[0-9]+$/.test(order.phoneNumber)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Numer telefonu może zawierać wyłącznie cyfry." });
+    }
 
     //ilosc elementow w zamowieniu
     if (!order.orderItems || !Array.isArray(order.orderItems) || order.orderItems.length === 0) {
@@ -174,23 +234,38 @@ app
     }
 
     for (const item of order.orderItems as OrderItem[]) {
-      if (!item.product) {
+      if (!item.product || typeof item.product.id !== "number") {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json({ message: "Każdy element zamówienia musi mieć produkt." });
+          .json({ message: "Każdy element zamówienia musi zawierać poprawne ID produktu." });
       }
 
-      if (
-        item.quantity === undefined ||
-        typeof item.quantity !== "number" ||
-        item.quantity <= 0
-      ) {
+      const existingProduct = await productRepository.findOneBy({
+        id: item.product.id,
+      });
+
+      if (!existingProduct) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json({ message: "Ilość produktu musi być większa od 0." });
+          .json({
+            message: `Produkt o ID ${item.product.id} nie istnieje.`,
+          });
       }
+
+      if (item.quantity === undefined || typeof item.quantity !== "number" || item.quantity <= 0) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({
+            message: `Nieprawidłowa ilość dla produktu ID ${item.product.id}. Ilość musi być > 0.`,
+          });
+      }
+
+      // przypisanie encji z bazy 
+      item.product = existingProduct;
     }
 
+
+    //stan zamowienia
     if (!order.orderState) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -224,11 +299,7 @@ app.patch("/orders/:id", async (req: express.Request, res: express.Response) => 
 
   const { orderState } = req.body;
 
-  if (
-    !orderState ||
-    !orderState.name ||
-    !Object.values(OrderStateName).includes(orderState.name)
-  ) {
+  if (!orderState || !orderState.name ||!Object.values(OrderStateName).includes(orderState.name)) {
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json({ message: "Valid orderState.name is required" });
@@ -243,10 +314,18 @@ app.patch("/orders/:id", async (req: express.Request, res: express.Response) => 
       relations: ["orderState"],
     });
 
+    //brak zamówienia
     if (!existingOrder) {
       return res
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Order not found" });
+    }
+
+    //zmiana anulowanego zamówienia
+    if (existingOrder.orderState.name === OrderStateName.Cancelled) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        message: "Nie można zmienić statusu zamówienia, które zostało anulowane.",
+      });
     }
 
     const newState = await stateRepository.findOneBy({
@@ -259,9 +338,24 @@ app.patch("/orders/:id", async (req: express.Request, res: express.Response) => 
         .json({ message: "Order state does not exist" });
     }
 
+    //walidacja nielegalnego przejścia stanu
+    const currentIndex = OrderStateFlow.indexOf(existingOrder.orderState.name);
+    const newIndex = OrderStateFlow.indexOf(newState.name);
+
+    if (currentIndex === -1 || newIndex === -1) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({message: "Nieprawidłowy stan zamówienia w procesie"});
+    }
+
+    if (newIndex < currentIndex) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({message: `Nie można cofnąć statusu z ${existingOrder.orderState.name} na ${newState.name}`});
+    }
+
     existingOrder.orderState = newState;
     await orderRepository.save(existingOrder);
-
     res.status(StatusCodes.OK).json(existingOrder);
 
   } catch (error) {

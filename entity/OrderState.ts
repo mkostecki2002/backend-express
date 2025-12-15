@@ -7,6 +7,12 @@ export enum OrderStateName {
   Completed = "COMPLETED",
 }
 
+export const OrderStateFlow: OrderStateName[] = [
+  OrderStateName.Unconfirmed,
+  OrderStateName.Confirmed,
+  OrderStateName.Completed,
+];
+
 @Entity()
 export class OrderState {
   @PrimaryColumn()
