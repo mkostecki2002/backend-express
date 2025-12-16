@@ -7,6 +7,8 @@ import AuthController from "./controllers/AuthController";
 import { initializeDatabase, AppDataSource } from "./data-source";
 import { StatusCodes } from "http-status-codes";
 import { Category } from "./entity/Category";
+import "dotenv/config";
+
 
 // Aplikacja Express
 const app = express();

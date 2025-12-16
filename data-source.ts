@@ -11,7 +11,7 @@ export const AppDataSource = new DataSource({
   host: "localhost",
   port: 5432,
   username: "postgres",
-  password: "password",
+  password: "apbd",
   database: "mydb",
   entities: [Product, Category, Order, OrderItem, OrderState, User],
   logging: true,

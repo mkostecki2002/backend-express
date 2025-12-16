@@ -2,6 +2,8 @@ import { Request, Response, Router } from "express";
 import { AppDataSource } from "../data-source";
 import { StatusCodes } from "http-status-codes";
 import { Product } from "../entity/Product";
+import { generateSeoDesc } from "../services/SeoDescService";
+import { text } from "stream/consumers";
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
@@ -179,6 +181,39 @@ router.put("/products/:id", async (req: Request, res: Response) => {
       error,
     });
   }
+});
+
+//generowanie SEO opisu dla produktu
+router.get("/:id/seo-description", async (req: Request, res: Response) => {
+  const productId = parseInt(req.params.id);
+  
+  if (isNaN(productId)) {
+    return res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "Invalid product ID" });
+  } 
+
+  try {
+    const product = await productRepository.findOne({
+      where: { id: productId },
+      relations: ["category"],
+    });
+
+    if (!product) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: "Product not found" });
+    }
+
+    const seoDescription = await generateSeoDesc(product);
+
+    res.status(StatusCodes.OK).type("text/html").send(seoDescription);
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: "Error generating SEO description",
+      error,
+    });
+  } 
 });
 
 export default router;
