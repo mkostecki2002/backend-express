@@ -9,7 +9,6 @@ import { OrderItem } from "./OrderItem";
 import { OrderState } from "./OrderState";
 import { Opinion } from "./Opinion";
 
-
 @Entity({ name: "orders" })
 export class Order {
   @PrimaryGeneratedColumn()
@@ -37,5 +36,4 @@ export class Order {
 
   @OneToMany(() => Opinion, opinion => opinion.order)
   opinions!: Opinion[];
-
 }

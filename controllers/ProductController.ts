@@ -113,7 +113,7 @@ router.put(
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Product name cannot be empty." });
+          .json({ message: "Product name cannot be empty." });
       }
 
       if (
@@ -123,17 +123,18 @@ router.put(
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Product description cannot be empty." });
+          .json({ message: "Product description cannot be empty." });
       }
 
       //walidacja zmiana ceny
       if (
         updatedData.priceUnit !== undefined &&
-      (typeof updatedData.priceUnit !== "number" || updatedData.priceUnit <= 0)
+        (typeof updatedData.priceUnit !== "number" ||
+          updatedData.priceUnit <= 0)
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Product price must be greater than 0." });
+          .json({ message: "Product price must be greater than 0." });
       }
 
       //walidacja zmiana wagi
@@ -144,7 +145,7 @@ router.put(
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Product weight must be greater than 0." });
+          .json({ message: "Product weight must be greater than 0." });
       }
 
       const updatedProduct = productRepository.merge(
@@ -160,7 +161,8 @@ router.put(
         error,
       });
     }
-});
+  }
+);
 
 //generowanie SEO opisu dla produktu
 router.get("/:id/seo-description", async (req: Request, res: Response) => {
