@@ -14,15 +14,7 @@ export const AppDataSource = new DataSource({
   username: "postgres",
   password: "password",
   database: "mydb",
-  entities: [
-    Product,
-    Category,
-    Order,
-    OrderItem,
-    OrderState,
-    User,
-    RefreshToken,
-  ],
+  entities: [Product, Category, Order, OrderItem, OrderState, User, Opinion],
   logging: true,
   synchronize: true,
 });

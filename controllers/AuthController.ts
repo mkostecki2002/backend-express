@@ -94,7 +94,6 @@ router.post("/register", async (req: Request, res: Response) => {
 // Po wygaśnięciu access tokena, używa się refresh do wygenerowania nowego na bazie refresh tokena, ktory jest przechowywany w bazie danych
 router.post("/refresh", async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
-  console.log("Received refresh token:", refreshToken);
   if (!refreshToken) {
     return res
       .status(StatusCodes.UNAUTHORIZED)

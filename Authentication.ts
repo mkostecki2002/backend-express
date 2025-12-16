@@ -57,7 +57,6 @@ export const requireRole =
   (role: UserRole) => (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
 
-    // Admin ma dostęp do wszystkiego
     if (!user || user.role !== role) {
       if (user.role !== UserRole.Admin) {
         return res
