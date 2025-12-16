@@ -1,5 +1,4 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { RefreshToken } from "./RefreshToken";
 
 export enum UserRole {
   Admin = "ADMIN",

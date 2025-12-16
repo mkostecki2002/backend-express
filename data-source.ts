@@ -2,9 +2,9 @@ import { DataSource } from "typeorm";
 import { Product } from "./entity/Product";
 import { Order } from "./entity/Order";
 import { User } from "./entity/User";
-import { Category, CategoryName } from "./entity/Category";
+import { Category } from "./entity/Category";
 import { OrderItem } from "./entity/OrderItem";
-import { OrderState, OrderStateName } from "./entity/OrderState";
+import { OrderState } from "./entity/OrderState";
 import { RefreshToken } from "./entity/RefreshToken";
 import { Opinion } from "./entity/Opinion";
 

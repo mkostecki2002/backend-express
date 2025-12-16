@@ -4,8 +4,8 @@ import jwt from "jsonwebtoken";
 import { UserRole } from "./entity/User";
 
 // Klucz pewnie trzeba będzie przenieść do zmiennych środowiskowych
-const JWT_SECRET_KEY = "your_secret_key";
-const JWT_REFRESH_KEY = "your_refresh_secret_key";
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY as string;
+const JWT_REFRESH_KEY = process.env.JWT_REFRESH_KEY as string;
 
 export const generateJwt = (
   payload: object,
