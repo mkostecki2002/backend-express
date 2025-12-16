@@ -3,7 +3,7 @@ import { User } from "../entity/User";
 import { AppDataSource } from "../data-source";
 import { StatusCodes } from "http-status-codes";
 import { hash, compare } from "bcryptjs";
-import { generateJwt } from "../Authentication";
+import { generateJwt, verifyRefresh } from "../Authentication";
 
 const router = Router();
 const userRepository = AppDataSource.getRepository(User);
@@ -68,6 +68,39 @@ router.post("/register", async (req: Request, res: Response) => {
     res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ message: "Internal server error", error });
+  }
+});
+
+router.post("/refresh", async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res
+      .status(StatusCodes.UNAUTHORIZED)
+      .json({ message: "No refresh token provided" });
+  }
+
+  try {
+    const payload = verifyRefresh(refreshToken) as {
+      userId: number;
+    };
+
+    const user = await userRepository.findOneBy({ id: payload.userId });
+    if (!user)
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({ message: "User not found" });
+
+    const newRefreshToken = generateJwt(
+      { userId: user.id, role: user.role },
+      "7d"
+    );
+    const accessToken = generateJwt({ sub: user.id, role: user.role }, "1h");
+
+    res.json({ accessToken: accessToken, refreshToken: newRefreshToken });
+  } catch {
+    res
+      .status(StatusCodes.UNAUTHORIZED)
+      .json({ message: "Invalid refresh token" });
   }
 });
 

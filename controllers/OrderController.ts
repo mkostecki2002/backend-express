@@ -4,7 +4,7 @@ import { Order } from "../entity/Order";
 import { StatusCodes } from "http-status-codes";
 import { OrderState, OrderStateName } from "../entity/OrderState";
 import { OrderItem } from "../entity/OrderItem";
-import verifyJwt, { requireRole } from "../Authentication";
+import { requireRole, verifyAccess } from "../Authentication";
 import { UserRole } from "../entity/User";
 import { OrderStateFlow } from "../entity/OrderState";
 import { Product } from "../entity/Product";
@@ -21,7 +21,7 @@ router
   //pozniej sie doda weryfikacje JWT i role do endpointow
   // na razie tylko dla get orders zrobilem
   .get(
-    verifyJwt,
+    verifyAccess,
     requireRole(UserRole.Customer),
     (req: Request, res: Response) => {
       orderRepository
@@ -143,7 +143,7 @@ router
   });
 
 //aktualizacja stanu zamówienia po id
-router.patch("/orders/:id", async (req: Request, res: Response) => {
+router.patch("/:id", async (req: Request, res: Response) => {
   const orderId = parseInt(req.params.id, 10);
 
   if (isNaN(orderId)) {
@@ -223,7 +223,7 @@ router.patch("/orders/:id", async (req: Request, res: Response) => {
 });
 
 //pobieranie zamówień po statusie
-router.get("/orders/status/:name", async (req: Request, res: Response) => {
+router.get("/status/:name", async (req: Request, res: Response) => {
   const stateName = req.params.name;
 
   //walidacja enum

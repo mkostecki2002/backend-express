@@ -3,7 +3,6 @@ import { AppDataSource } from "../data-source";
 import { StatusCodes } from "http-status-codes";
 import { Product } from "../entity/Product";
 import { generateSeoDesc } from "../services/SeoDescService";
-import { text } from "stream/consumers";
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
@@ -76,7 +75,7 @@ router
   });
 
 //pobieranie produktu po id
-router.get("/products/:id", async (req: Request, res: Response) => {
+router.get("/:id", async (req: Request, res: Response) => {
   const productId = parseInt(req.params.id, 10);
 
   if (isNaN(productId)) {
@@ -106,7 +105,7 @@ router.get("/products/:id", async (req: Request, res: Response) => {
 });
 
 //aktualizacja produktu
-router.put("/products/:id", async (req: Request, res: Response) => {
+router.put("/:id", async (req: Request, res: Response) => {
   const productId = parseInt(req.params.id, 10);
 
   if (isNaN(productId)) {
@@ -186,12 +185,12 @@ router.put("/products/:id", async (req: Request, res: Response) => {
 //generowanie SEO opisu dla produktu
 router.get("/:id/seo-description", async (req: Request, res: Response) => {
   const productId = parseInt(req.params.id);
-  
+
   if (isNaN(productId)) {
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json({ message: "Invalid product ID" });
-  } 
+  }
 
   try {
     const product = await productRepository.findOne({
@@ -213,7 +212,7 @@ router.get("/:id/seo-description", async (req: Request, res: Response) => {
       message: "Error generating SEO description",
       error,
     });
-  } 
+  }
 });
 
 export default router;

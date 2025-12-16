@@ -5,6 +5,7 @@ import { UserRole } from "./entity/User";
 
 // Klucz pewnie trzeba będzie przenieść do zmiennych środowiskowych
 const JWT_SECRET_KEY = "your_secret_key";
+const JWT_REFRESH_KEY = "your_refresh_secret_key";
 
 export const generateJwt = (
   payload: object,
@@ -13,7 +14,11 @@ export const generateJwt = (
   return jwt.sign(payload, JWT_SECRET_KEY, { expiresIn } as any);
 };
 
-const verifyJwt = (req: Request, res: Response, next: NextFunction) => {
+export const verifyAccess = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res
@@ -37,6 +42,12 @@ const verifyJwt = (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+export const verifyRefresh = (token: string) => {
+  return jwt.verify(token, JWT_REFRESH_KEY) as {
+    userId: number;
+  };
+};
+
 export const requireRole =
   (role: UserRole) => (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
@@ -50,5 +61,3 @@ export const requireRole =
     }
     next();
   };
-
-export default verifyJwt;
