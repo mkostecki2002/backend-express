@@ -7,6 +7,8 @@ import {
 } from "typeorm";
 import { OrderItem } from "./OrderItem";
 import { OrderState } from "./OrderState";
+import { Opinion } from "./Opinion";
+
 
 @Entity({ name: "orders" })
 export class Order {
@@ -32,4 +34,8 @@ export class Order {
     cascade: true,
   })
   orderItems!: OrderItem[];
+
+  @OneToMany(() => Opinion, opinion => opinion.order)
+  opinions!: Opinion[];
+
 }

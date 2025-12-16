@@ -12,21 +12,21 @@ export const validateSingleProduct = (
   product: Partial<Product>
 ): string | null => {
   if (!product.name || product.name.trim() === "")
-    return "Nazwa produktu nie może być pusta.";
+    return "Product name cannot be empty.";
   if (!product.description || product.description.trim() === "")
-    return "Opis produktu nie może być pusty.";
+    return "Product description cannot be empty.";
   if (
     product.priceUnit === undefined ||
     typeof product.priceUnit !== "number" ||
     product.priceUnit <= 0
   )
-    return "Cena produktu musi być większa od 0.";
+    return "Product price must be greater than 0.";
   if (
     product.weightUnit === undefined ||
     typeof product.weightUnit !== "number" ||
     product.weightUnit <= 0
   )
-    return "Waga produktu musi być większa od 0.";
+    return "Product weight must be greater than 0.";
   return null;
 };
 
@@ -147,7 +147,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Nazwa produktu nie może być pusta." });
+        .json({ message: "Product name cannot be empty." });
     }
 
     if (
@@ -157,7 +157,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Opis produktu nie może być pusty." });
+        .json({ message: "Product description cannot be empty." });
     }
 
     //walidacja zmiana ceny
@@ -167,7 +167,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Cena produktu musi być liczbą większą od 0." });
+        .json({ message: "Product price must be greater than 0." });
     }
 
     //walidacja zmiana wagi
@@ -178,7 +178,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Waga produktu musi być liczbą większą od 0." });
+        .json({ message: "Product weight must be greater than 0." });
     }
 
     const updatedProduct = productRepository.merge(
