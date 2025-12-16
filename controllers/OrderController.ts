@@ -18,11 +18,10 @@ const productRepository = AppDataSource.getRepository(Product);
 //Zamówienia
 router
   .route("/")
-  //pozniej sie doda weryfikacje JWT i role do endpointow
-  // na razie tylko dla get orders zrobilem
   .get(
     verifyAccess,
-    requireRole(UserRole.Customer),
+    // Na razie tylko admin moze pobierac wszystkie zamowienia
+    requireRole(UserRole.Admin),
     (req: Request, res: Response) => {
       orderRepository
         .find({
@@ -40,187 +39,198 @@ router
     }
   )
 
-  .post(async (req: Request, res: Response) => {
-    const order = req.body as Order;
+  .post(
+    verifyAccess,
+    requireRole(UserRole.Customer),
+    async (req: Request, res: Response) => {
+      const order = req.body as Order;
 
-    //walidacja pola username
-    if (!order.username || order.username.trim() === "") {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Pole username nie może być puste." });
-    }
-
-    //pusty mail
-    if (!order.email || order.email.trim() === "") {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Pole email nie może być puste." });
-    }
-
-    //format maila
-    if (!/^\S+@\S+\.\S+$/.test(order.email)) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Pole email musi zawierać poprawny adres e-mail." });
-    }
-
-    //pusty telefon
-    if (!order.phoneNumber || order.phoneNumber.trim() === "") {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Pole phoneNumber nie może być puste." });
-    }
-
-    //format telefonu
-    if (!/^[0-9]+$/.test(order.phoneNumber)) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Numer telefonu może zawierać wyłącznie cyfry." });
-    }
-
-    //ilosc elementow w zamowieniu
-    if (
-      !order.orderItems ||
-      !Array.isArray(order.orderItems) ||
-      order.orderItems.length === 0
-    ) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: "Zamówienie musi zawierać co najmniej jeden element.",
-      });
-    }
-
-    for (const item of order.orderItems as OrderItem[]) {
-      if (!item.product || typeof item.product.id !== "number") {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          message:
-            "Każdy element zamówienia musi zawierać poprawne ID produktu.",
-        });
+      //walidacja pola username
+      if (!order.username || order.username.trim() === "") {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Pole username nie może być puste." });
       }
 
-      const existingProduct = await productRepository.findOneBy({
-        id: item.product.id,
-      });
-
-      if (!existingProduct) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          message: `Produkt o ID ${item.product.id} nie istnieje.`,
-        });
+      //pusty mail
+      if (!order.email || order.email.trim() === "") {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Pole email nie może być puste." });
       }
 
+      //format maila
+      if (!/^\S+@\S+\.\S+$/.test(order.email)) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Pole email musi zawierać poprawny adres e-mail." });
+      }
+
+      //pusty telefon
+      if (!order.phoneNumber || order.phoneNumber.trim() === "") {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Pole phoneNumber nie może być puste." });
+      }
+
+      //format telefonu
+      if (!/^[0-9]+$/.test(order.phoneNumber)) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Numer telefonu może zawierać wyłącznie cyfry." });
+      }
+
+      //ilosc elementow w zamowieniu
       if (
-        item.quantity === undefined ||
-        typeof item.quantity !== "number" ||
-        item.quantity <= 0
+        !order.orderItems ||
+        !Array.isArray(order.orderItems) ||
+        order.orderItems.length === 0
       ) {
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: `Nieprawidłowa ilość dla produktu ID ${item.product.id}. Ilość musi być > 0.`,
+          message: "Zamówienie musi zawierać co najmniej jeden element.",
         });
       }
 
-      // przypisanie encji z bazy
-      item.product = existingProduct;
-    }
+      for (const item of order.orderItems as OrderItem[]) {
+        if (!item.product || typeof item.product.id !== "number") {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            message:
+              "Każdy element zamówienia musi zawierać poprawne ID produktu.",
+          });
+        }
 
-    //stan zamowienia
-    if (!order.orderState) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Zamówienie musi mieć stan (orderState)." });
-    }
-
-    //zapis zamowienia
-    orderRepository
-      .save(order)
-      .then(savedOrder => {
-        res.status(StatusCodes.CREATED).json(savedOrder);
-      })
-      .catch(error => {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          message: "Error saving order",
-          error,
+        const existingProduct = await productRepository.findOneBy({
+          id: item.product.id,
         });
-      });
-  });
+
+        if (!existingProduct) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            message: `Produkt o ID ${item.product.id} nie istnieje.`,
+          });
+        }
+
+        if (
+          item.quantity === undefined ||
+          typeof item.quantity !== "number" ||
+          item.quantity <= 0
+        ) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            message: `Nieprawidłowa ilość dla produktu ID ${item.product.id}. Ilość musi być > 0.`,
+          });
+        }
+
+        // przypisanie encji z bazy
+        item.product = existingProduct;
+      }
+
+      //stan zamowienia
+      if (!order.orderState) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Zamówienie musi mieć stan (orderState)." });
+      }
+
+      //zapis zamowienia
+      orderRepository
+        .save(order)
+        .then(savedOrder => {
+          res.status(StatusCodes.CREATED).json(savedOrder);
+        })
+        .catch(error => {
+          res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            message: "Error saving order",
+            error,
+          });
+        });
+    }
+  );
 
 //aktualizacja stanu zamówienia po id
-router.patch("/:id", async (req: Request, res: Response) => {
-  const orderId = parseInt(req.params.id, 10);
+router.patch(
+  "/:id",
+  verifyAccess,
+  requireRole(UserRole.Admin),
+  async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id, 10);
 
-  if (isNaN(orderId)) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Invalid order ID" });
-  }
-
-  const { orderState } = req.body;
-
-  if (
-    !orderState ||
-    !orderState.name ||
-    !Object.values(OrderStateName).includes(orderState.name)
-  ) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Valid orderState.name is required" });
-  }
-
-  try {
-    const existingOrder = await orderRepository.findOne({
-      where: { id: orderId },
-      relations: ["orderState"],
-    });
-
-    //brak zamówienia
-    if (!existingOrder) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json({ message: "Order not found" });
-    }
-
-    //zmiana anulowanego zamówienia
-    if (existingOrder.orderState.name === OrderStateName.Cancelled) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message:
-          "Nie można zmienić statusu zamówienia, które zostało anulowane.",
-      });
-    }
-
-    const newState = await stateRepository.findOneBy({
-      name: orderState.name,
-    });
-
-    if (!newState) {
+    if (isNaN(orderId)) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Order state does not exist" });
+        .json({ message: "Invalid order ID" });
     }
 
-    //walidacja nielegalnego przejścia stanu
-    const currentIndex = OrderStateFlow.indexOf(existingOrder.orderState.name);
-    const newIndex = OrderStateFlow.indexOf(newState.name);
+    const { orderState } = req.body;
 
-    if (currentIndex === -1 || newIndex === -1) {
+    if (
+      !orderState ||
+      !orderState.name ||
+      !Object.values(OrderStateName).includes(orderState.name)
+    ) {
       return res
         .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Nieprawidłowy stan zamówienia w procesie" });
+        .json({ message: "Valid orderState.name is required" });
     }
 
-    if (newIndex < currentIndex) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        message: `Nie można cofnąć statusu z ${existingOrder.orderState.name} na ${newState.name}`,
+    try {
+      const existingOrder = await orderRepository.findOne({
+        where: { id: orderId },
+        relations: ["orderState"],
+      });
+
+      //brak zamówienia
+      if (!existingOrder) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "Order not found" });
+      }
+
+      //zmiana anulowanego zamówienia
+      if (existingOrder.orderState.name === OrderStateName.Cancelled) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Nie można zmienić statusu zamówienia, które zostało anulowane.",
+        });
+      }
+
+      const newState = await stateRepository.findOneBy({
+        name: orderState.name,
+      });
+
+      if (!newState) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Order state does not exist" });
+      }
+
+      //walidacja nielegalnego przejścia stanu
+      const currentIndex = OrderStateFlow.indexOf(
+        existingOrder.orderState.name
+      );
+      const newIndex = OrderStateFlow.indexOf(newState.name);
+
+      if (currentIndex === -1 || newIndex === -1) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Nieprawidłowy stan zamówienia w procesie" });
+      }
+
+      if (newIndex < currentIndex) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: `Nie można cofnąć statusu z ${existingOrder.orderState.name} na ${newState.name}`,
+        });
+      }
+
+      existingOrder.orderState = newState;
+      await orderRepository.save(existingOrder);
+      res.status(StatusCodes.OK).json(existingOrder);
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error updating order state",
+        error,
       });
     }
-
-    existingOrder.orderState = newState;
-    await orderRepository.save(existingOrder);
-    res.status(StatusCodes.OK).json(existingOrder);
-  } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: "Error updating order state",
-      error,
-    });
   }
-});
+);
 
 //pobieranie zamówień po statusie
 router.get("/status/:name", async (req: Request, res: Response) => {

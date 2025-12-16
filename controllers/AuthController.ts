@@ -3,7 +3,9 @@ import { User } from "../entity/User";
 import { AppDataSource } from "../data-source";
 import { StatusCodes } from "http-status-codes";
 import { hash, compare } from "bcryptjs";
-import { generateJwt, verifyRefresh } from "../Authentication";
+import { generateJwt, verifyRefresh, verifyAccess } from "../Authentication";
+import { RefreshToken } from "../entity/RefreshToken";
+import jwt from "jsonwebtoken";
 
 const router = Router();
 const userRepository = AppDataSource.getRepository(User);
@@ -25,9 +27,27 @@ router.post("/login", async (req: Request, res: Response) => {
     const token = generateJwt({ sub: user.id });
     res.setHeader("Authorization", `Bearer ${token}`);
 
-    res
-      .status(StatusCodes.OK)
-      .json({ token: generateJwt({ sub: user.id, role: user.role }) });
+    const refreshToken = generateJwt(
+      { sub: user.id, role: user.role },
+      "7d",
+      "refresh"
+    );
+
+    const decoded = jwt.decode(refreshToken) as { exp: number; iat: number };
+
+    const refreshTokenEntity = new RefreshToken();
+    refreshTokenEntity.user = user;
+    refreshTokenEntity.token = refreshToken;
+    refreshTokenEntity.createdAt = new Date(decoded.iat * 1000);
+    refreshTokenEntity.expiresAt = new Date(decoded.exp * 1000);
+
+    AppDataSource.getRepository("RefreshToken").save(refreshTokenEntity);
+
+    res.status(StatusCodes.OK).json({
+      //Domyslnie 1h waznosci accessTokena
+      accessToken: generateJwt({ sub: user.id, role: user.role }),
+      refreshToken: refreshToken,
+    });
   } catch (error) {
     res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -71,8 +91,10 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
+// Po wygaśnięciu access tokena, używa się refresh do wygenerowania nowego na bazie refresh tokena, ktory jest przechowywany w bazie danych
 router.post("/refresh", async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
+  console.log("Received refresh token:", refreshToken);
   if (!refreshToken) {
     return res
       .status(StatusCodes.UNAUTHORIZED)
@@ -80,28 +102,33 @@ router.post("/refresh", async (req: Request, res: Response) => {
   }
 
   try {
-    const payload = verifyRefresh(refreshToken) as {
-      userId: number;
-    };
-
-    const user = await userRepository.findOneBy({ id: payload.userId });
+    const payload = verifyRefresh(refreshToken) as { sub: string };
+    const userId = parseInt(payload.sub, 10);
+    console.log("Refresh token valid for user ID:", userId);
+    const user = await userRepository.findOneBy({ id: userId });
     if (!user)
       return res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ message: "User not found" });
-
-    const newRefreshToken = generateJwt(
-      { userId: user.id, role: user.role },
-      "7d"
-    );
     const accessToken = generateJwt({ sub: user.id, role: user.role }, "1h");
 
-    res.json({ accessToken: accessToken, refreshToken: newRefreshToken });
+    res.json({ accessToken: accessToken });
   } catch {
     res
       .status(StatusCodes.UNAUTHORIZED)
       .json({ message: "Invalid refresh token" });
   }
+});
+
+// Usuniecie wszystkich refresh tokenow z bazy danych po wylogowaniu
+// Wylogowanie ma na celu uniewaznic kazda aktywna sesje uzytkownika
+router.post("/logout", verifyAccess, async (req: Request, res: Response) => {
+  AppDataSource.getRepository("RefreshToken")
+    .delete({ userId: (req as any).user.sub })
+    .catch(error => {
+      console.error("Error deleting refresh tokens on logout:", error);
+    });
+  res.status(StatusCodes.OK).json({ message: "Logged out successfully" });
 });
 
 export default router;

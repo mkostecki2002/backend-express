@@ -1,69 +1,23 @@
-import { NextFunction, Request, Response, Router } from "express";
+import { Request, Response, Router } from "express";
 import { AppDataSource } from "../data-source";
 import { StatusCodes } from "http-status-codes";
 import { Product } from "../entity/Product";
 import { generateSeoDesc } from "../services/SeoDescService";
-import { parse } from "csv-parse/sync";
+import { validateProductMiddleware } from "../services/ProductService";
+import { requireRole, verifyAccess } from "../Authentication";
+import { UserRole } from "../entity/User";
 
 const router = Router();
 const productRepository = AppDataSource.getRepository(Product);
-
-export const validateSingleProduct = (
-  product: Partial<Product>
-): string | null => {
-  if (!product.name || product.name.trim() === "")
-    return "Nazwa produktu nie może być pusta.";
-  if (!product.description || product.description.trim() === "")
-    return "Opis produktu nie może być pusty.";
-  if (
-    product.priceUnit === undefined ||
-    typeof product.priceUnit !== "number" ||
-    product.priceUnit <= 0
-  )
-    return "Cena produktu musi być większa od 0.";
-  if (
-    product.weightUnit === undefined ||
-    typeof product.weightUnit !== "number" ||
-    product.weightUnit <= 0
-  )
-    return "Waga produktu musi być większa od 0.";
-  return null;
-};
-
-const validateProductMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const error = validateSingleProduct(req.body);
-  if (error)
-    return res.status(StatusCodes.BAD_REQUEST).json({ message: error });
-  next();
-};
-
-export const validateProductsArray = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const products: Partial<Product>[] = Array.isArray(req.body)
-    ? req.body
-    : parse(req.body);
-
-  for (const p of products) {
-    const error = validateSingleProduct(p);
-    if (error) return res.status(400).json({ message: error });
-  }
-
-  next();
-};
 
 //Produkty
 router
   .route("/")
   .get(async (req: Request, res: Response) => {
     try {
-      const products = await productRepository.find();
+      const products = await productRepository.find({
+        relations: ["category"],
+      });
 
       res.status(StatusCodes.OK).json(products);
     } catch (error) {
@@ -74,19 +28,24 @@ router
     }
   })
 
-  .post(validateProductMiddleware, async (req: Request, res: Response) => {
-    const product = req.body as Product;
-    try {
-      const savedProduct = await productRepository.save(product);
+  .post(
+    validateProductMiddleware,
+    verifyAccess,
+    requireRole(UserRole.Admin),
+    async (req: Request, res: Response) => {
+      const product = req.body as Product;
+      try {
+        const savedProduct = await productRepository.save(product);
 
-      res.status(StatusCodes.CREATED).json(savedProduct);
-    } catch (error) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        message: "Error saving product",
-        error,
-      });
+        res.status(StatusCodes.CREATED).json(savedProduct);
+      } catch (error) {
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          message: "Error saving product",
+          error,
+        });
+      }
     }
-  });
+  );
 
 //pobieranie produktu po id
 router.get("/:id", async (req: Request, res: Response) => {
@@ -99,8 +58,11 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 
   try {
-    const product = await productRepository.findOneBy({
-      id: productId,
+    const product = await productRepository.findOne({
+      where: {
+        id: productId,
+      },
+      relations: ["category"],
     });
 
     if (!product) {
@@ -119,82 +81,88 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 //aktualizacja produktu
-router.put("/:id", async (req: Request, res: Response) => {
-  const productId = parseInt(req.params.id, 10);
+router.put(
+  "/:id",
+  verifyAccess,
+  requireRole(UserRole.Admin),
+  async (req: Request, res: Response) => {
+    const productId = parseInt(req.params.id, 10);
 
-  if (isNaN(productId)) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Invalid product ID" });
+    if (isNaN(productId)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Invalid product ID" });
+    }
+
+    try {
+      const existingProduct = await productRepository.findOneBy({
+        id: productId,
+      });
+
+      if (!existingProduct) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "Product not found" });
+      }
+
+      const updatedData = req.body as Partial<Product>;
+
+      if (
+        updatedData.name !== undefined &&
+        (typeof updatedData.name !== "string" || updatedData.name.trim() === "")
+      ) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Nazwa produktu nie może być pusta." });
+      }
+
+      if (
+        updatedData.description !== undefined &&
+        (typeof updatedData.description !== "string" ||
+          updatedData.description.trim() === "")
+      ) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Opis produktu nie może być pusty." });
+      }
+
+      //walidacja zmiana ceny
+      if (
+        updatedData.priceUnit !== undefined &&
+        (typeof updatedData.priceUnit !== "number" ||
+          updatedData.priceUnit <= 0)
+      ) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Cena produktu musi być liczbą większą od 0." });
+      }
+
+      //walidacja zmiana wagi
+      if (
+        updatedData.weightUnit !== undefined &&
+        (typeof updatedData.weightUnit !== "number" ||
+          updatedData.weightUnit <= 0)
+      ) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Waga produktu musi być liczbą większą od 0." });
+      }
+
+      const updatedProduct = productRepository.merge(
+        existingProduct,
+        updatedData
+      );
+      await productRepository.save(updatedProduct);
+
+      res.status(StatusCodes.OK).json(updatedProduct);
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error updating product",
+        error,
+      });
+    }
   }
-
-  try {
-    const existingProduct = await productRepository.findOneBy({
-      id: productId,
-    });
-
-    if (!existingProduct) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json({ message: "Product not found" });
-    }
-
-    const updatedData = req.body as Partial<Product>;
-
-    if (
-      updatedData.name !== undefined &&
-      (typeof updatedData.name !== "string" || updatedData.name.trim() === "")
-    ) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Nazwa produktu nie może być pusta." });
-    }
-
-    if (
-      updatedData.description !== undefined &&
-      (typeof updatedData.description !== "string" ||
-        updatedData.description.trim() === "")
-    ) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Opis produktu nie może być pusty." });
-    }
-
-    //walidacja zmiana ceny
-    if (
-      updatedData.priceUnit !== undefined &&
-      (typeof updatedData.priceUnit !== "number" || updatedData.priceUnit <= 0)
-    ) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Cena produktu musi być liczbą większą od 0." });
-    }
-
-    //walidacja zmiana wagi
-    if (
-      updatedData.weightUnit !== undefined &&
-      (typeof updatedData.weightUnit !== "number" ||
-        updatedData.weightUnit <= 0)
-    ) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Waga produktu musi być liczbą większą od 0." });
-    }
-
-    const updatedProduct = productRepository.merge(
-      existingProduct,
-      updatedData
-    );
-    await productRepository.save(updatedProduct);
-
-    res.status(StatusCodes.OK).json(updatedProduct);
-  } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      message: "Error updating product",
-      error,
-    });
-  }
-});
+);
 
 //generowanie SEO opisu dla produktu
 router.get("/:id/seo-description", async (req: Request, res: Response) => {

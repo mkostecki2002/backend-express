@@ -9,9 +9,14 @@ const JWT_REFRESH_KEY = "your_refresh_secret_key";
 
 export const generateJwt = (
   payload: object,
-  expiresIn: string | number = "1h"
+  expiresIn: string | number = "1h",
+  type?: string
 ) => {
-  return jwt.sign(payload, JWT_SECRET_KEY, { expiresIn } as any);
+  if (type === "refresh") {
+    return jwt.sign(payload, JWT_REFRESH_KEY, { expiresIn } as any);
+  } else {
+    return jwt.sign(payload, JWT_SECRET_KEY, { expiresIn } as any);
+  }
 };
 
 export const verifyAccess = (
@@ -43,15 +48,16 @@ export const verifyAccess = (
 };
 
 export const verifyRefresh = (token: string) => {
-  return jwt.verify(token, JWT_REFRESH_KEY) as {
-    userId: number;
-  };
+  return jwt.verify(token, JWT_REFRESH_KEY) as { sub: string };
 };
 
+// Przy podaniu parametru Customer to Customer ma dostep do endpointu
+// Admin przy uzyciu tego middleware zawsze ma dostep
 export const requireRole =
   (role: UserRole) => (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
 
+    // Admin ma dostęp do wszystkiego
     if (!user || user.role !== role) {
       if (user.role !== UserRole.Admin) {
         return res

@@ -1,9 +1,8 @@
 import "reflect-metadata";
 import express, { Request, Response } from "express";
 import "./controllers/OrderController";
-import ProductController, {
-  validateProductsArray,
-} from "./controllers/ProductController";
+import ProductController from "./controllers/ProductController";
+import { validateProductsArray } from "./services/ProductService";
 import OrderController from "./controllers/OrderController";
 import AuthController from "./controllers/AuthController";
 import { initializeDatabase, AppDataSource } from "./data-source";
@@ -14,6 +13,7 @@ import { requireRole, verifyAccess } from "./Authentication";
 import { UserRole } from "./entity/User";
 import { Product } from "./entity/Product";
 import { parse } from "csv-parse/sync";
+import { OrderState } from "./entity/OrderState";
 
 // Aplikacja Express
 const app = express();
@@ -32,6 +32,19 @@ app.get("/categories", async (req: Request, res: Response) => {
     const categories = await AppDataSource.getRepository(Category).find();
 
     res.status(StatusCodes.OK).json(categories);
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: "Error fetching categories",
+      error,
+    });
+  }
+});
+
+app.get("/status", async (req: Request, res: Response) => {
+  try {
+    const states = await AppDataSource.getRepository(OrderState).find();
+
+    res.status(StatusCodes.OK).json(states);
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       message: "Error fetching categories",

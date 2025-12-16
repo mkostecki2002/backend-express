@@ -5,6 +5,7 @@ import { User } from "./entity/User";
 import { Category, CategoryName } from "./entity/Category";
 import { OrderItem } from "./entity/OrderItem";
 import { OrderState, OrderStateName } from "./entity/OrderState";
+import { RefreshToken } from "./entity/RefreshToken";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -13,7 +14,15 @@ export const AppDataSource = new DataSource({
   username: "postgres",
   password: "password",
   database: "mydb",
-  entities: [Product, Category, Order, OrderItem, OrderState, User],
+  entities: [
+    Product,
+    Category,
+    Order,
+    OrderItem,
+    OrderState,
+    User,
+    RefreshToken,
+  ],
   logging: true,
   synchronize: true,
 });
