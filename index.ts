@@ -1,5 +1,7 @@
 import "reflect-metadata";
+import "dotenv/config";
 import express, { Request, Response } from "express";
+import cors from "cors";
 import "./controllers/OrderController";
 import ProductController from "./controllers/ProductController";
 import { validateProductsArray } from "./services/ProductService";
@@ -8,7 +10,6 @@ import AuthController from "./controllers/AuthController";
 import { initializeDatabase, AppDataSource } from "./data-source";
 import { StatusCodes } from "http-status-codes";
 import { Category } from "./entity/Category";
-import "dotenv/config";
 import { requireRole, verifyAccess } from "./Authentication";
 import { UserRole } from "./entity/User";
 import { Product } from "./entity/Product";
@@ -19,6 +20,7 @@ import { OrderState } from "./entity/OrderState";
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use(express.text({ type: ["text/plain", "text/csv"] }));
 
@@ -100,7 +102,7 @@ app.post(
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .json({ message: "Error initializing database", error });
     }
-  }
+  },
 );
 
 // Asynchroniczna funkcja główna

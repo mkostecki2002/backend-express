@@ -44,7 +44,7 @@ router
           error,
         });
       }
-    }
+    },
   );
 
 //pobieranie produktu po id
@@ -150,7 +150,7 @@ router.put(
 
       const updatedProduct = productRepository.merge(
         existingProduct,
-        updatedData
+        updatedData,
       );
       await productRepository.save(updatedProduct);
 
@@ -161,7 +161,7 @@ router.put(
         error,
       });
     }
-  }
+  },
 );
 
 //generowanie SEO opisu dla produktu

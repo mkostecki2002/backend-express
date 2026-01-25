@@ -5,21 +5,21 @@ import { parse } from "csv-parse/sync";
 
 const validateSingleProduct = (product: Partial<Product>): string | null => {
   if (!product.name || product.name.trim() === "")
-    return "Nazwa produktu nie może być pusta.";
+    return "Product name cannot be empty.";
   if (!product.description || product.description.trim() === "")
-    return "Opis produktu nie może być pusty.";
+    return "Product description cannot be empty.";
   if (
     product.priceUnit === undefined ||
     typeof product.priceUnit !== "number" ||
     product.priceUnit <= 0
   )
-    return "Cena produktu musi być większa od 0.";
+    return "Price of product must be greater than 0.";
   if (
     product.weightUnit === undefined ||
     typeof product.weightUnit !== "number" ||
     product.weightUnit <= 0
   )
-    return "Waga produktu musi być większa od 0.";
+    return "Weigth of product must be greater than 0.";
   return null;
 };
 
@@ -45,7 +45,8 @@ export const validateProductsArray = (
 
   for (const p of products) {
     const error = validateSingleProduct(p);
-    if (error) return res.status(400).json({ message: error });
+    if (error)
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: error });
   }
 
   next();
