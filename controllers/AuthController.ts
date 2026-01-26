@@ -30,7 +30,7 @@ router.post("/login", async (req: Request, res: Response) => {
     const refreshToken = generateJwt(
       { sub: user.id, role: user.role },
       "7d",
-      "refresh"
+      "refresh",
     );
 
     const decoded = jwt.decode(refreshToken) as { exp: number; iat: number };
@@ -123,7 +123,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
 // Wylogowanie ma na celu uniewaznic kazda aktywna sesje uzytkownika
 router.post("/logout", verifyAccess, async (req: Request, res: Response) => {
   AppDataSource.getRepository("RefreshToken")
-    .delete({ userId: (req as any).user.sub })
+    .delete({ id: (req as any).user.sub })
     .catch(error => {
       console.error("Error deleting refresh tokens on logout:", error);
     });

@@ -11,6 +11,7 @@ export const OrderStateFlow: OrderStateName[] = [
   OrderStateName.Unconfirmed,
   OrderStateName.Confirmed,
   OrderStateName.Completed,
+  OrderStateName.Cancelled,
 ];
 
 @Entity({ name: "order_states" })

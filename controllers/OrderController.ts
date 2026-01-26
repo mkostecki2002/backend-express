@@ -5,7 +5,7 @@ import { StatusCodes } from "http-status-codes";
 import { OrderState, OrderStateName } from "../entity/OrderState";
 import { OrderItem } from "../entity/OrderItem";
 import { requireRole, verifyAccess } from "../Authentication";
-import { UserRole } from "../entity/User";
+import { UserRole, User } from "../entity/User";
 import { OrderStateFlow } from "../entity/OrderState";
 import { Product } from "../entity/Product";
 import { Opinion } from "../entity/Opinion";
@@ -16,6 +16,7 @@ const orderRepository = AppDataSource.getRepository(Order);
 const stateRepository = AppDataSource.getRepository(OrderState);
 const productRepository = AppDataSource.getRepository(Product);
 const opinionRepository = AppDataSource.getRepository(Opinion);
+const userRepository = AppDataSource.getRepository(User);
 
 //Zamówienia
 router
@@ -38,7 +39,7 @@ router
             error,
           });
         });
-    }
+    },
   )
 
   .post(
@@ -132,6 +133,8 @@ router
           .json({ message: "Order must have an order state." });
       }
 
+      order.approvalDate = new Date();
+
       //zapis zamowienia
       orderRepository
         .save(order)
@@ -144,8 +147,44 @@ router
             error,
           });
         });
-    }
+    },
   );
+
+router.get(
+  "/me", // To będzie: GET /orders/me
+  verifyAccess,
+  requireRole(UserRole.Customer), // Tylko Klient
+  async (req: Request, res: Response) => {
+    try {
+      const userToken = (req as any).user;
+
+      // Pobieramy usera, by mieć pewność co do username
+      const userEntity = await userRepository.findOneBy({ id: userToken.sub });
+      if (!userEntity) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .json({ message: "User not found" });
+      }
+
+      const orders = await orderRepository.find({
+        where: { username: userEntity.username }, // Filtrowanie po userze
+        relations: [
+          "orderItems",
+          "orderItems.product",
+          "orderState",
+          "opinions",
+        ],
+        order: { approvalDate: "DESC" },
+      });
+
+      res.status(StatusCodes.OK).json(orders);
+    } catch (error) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error fetching my orders", error });
+    }
+  },
+);
 
 //aktualizacja stanu zamówienia po id
 router.patch(
@@ -205,7 +244,7 @@ router.patch(
 
       //walidacja nielegalnego przejścia stanu
       const currentIndex = OrderStateFlow.indexOf(
-        existingOrder.orderState.name
+        existingOrder.orderState.name,
       );
       const newIndex = OrderStateFlow.indexOf(newState.name);
 
@@ -230,7 +269,7 @@ router.patch(
         error,
       });
     }
-  }
+  },
 );
 
 //pobieranie zamówień po statusie
@@ -263,79 +302,58 @@ router.get("/status/:name", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/:id/opinions", async (req: Request, res: Response) => {
-  const orderId = parseInt(req.params.id, 10);
+// 4. KLIENT: Dodawanie opinii
+router.post("/:id/opinions", verifyAccess, async (req, res) => {
+  const orderId = parseInt(req.params.id);
   const { rating, content } = req.body;
-  const user = (req as any).user;
+  const userToken = (req as any).user;
 
-  if (isNaN(orderId)) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Invalid order ID" });
+  if (isNaN(orderId))
+    return res.status(StatusCodes.BAD_REQUEST).json({ message: "Invalid ID" });
+
+  try {
+    const order = await orderRepository.findOne({
+      where: { id: orderId },
+      relations: ["orderState", "opinions"],
+    });
+    const user = await userRepository.findOneBy({ id: userToken.sub });
+
+    if (!order || !user)
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "Not found" });
+
+    // Walidacja właściciela
+    if (order.username !== user.username) {
+      return res
+        .status(StatusCodes.FORBIDDEN)
+        .json({ message: "Not your order" });
+    }
+
+    // Walidacja statusu (Tylko Zrealizowane lub Anulowane mogą być oceniane)
+    if (
+      order.orderState.name !== OrderStateName.Completed &&
+      order.orderState.name !== OrderStateName.Cancelled
+    ) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Order not completed yet" });
+    }
+
+    // Walidacja duplikatu
+    if (order.opinions && order.opinions.length > 0) {
+      return res
+        .status(StatusCodes.CONFLICT)
+        .json({ message: "Already rated" });
+    }
+
+    const opinion = opinionRepository.create({ rating, content, order });
+    await opinionRepository.save(opinion);
+    res.status(StatusCodes.CREATED).json(opinion);
+  } catch (e) {
+    console.error(e);
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: "Error adding opinion" });
   }
-
-  if (
-    typeof rating !== "number" ||
-    !Number.isInteger(rating) ||
-    rating < 1 ||
-    rating > 5
-  ) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Rating must be an integer between 1 and 5" });
-  }
-
-  if (!content || typeof content !== "string" || content.trim() === "") {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Opinion content cannot be empty" });
-  }
-
-  const order = await orderRepository.findOne({
-    where: { id: orderId },
-    relations: ["orderState"],
-  });
-
-  if (!order) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Order not found" });
-  }
-
-  if (!order.orderState) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Order has no state assigned" });
-  }
-
-  //zamowienie musi byc zrealizowane lub anulowane
-  if (
-    order.orderState.name !== OrderStateName.Completed &&
-    order.orderState.name !== OrderStateName.Cancelled
-  ) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({
-        message: "Opinion can be added only to completed or cancelled orders",
-      });
-  }
-
-  //opinia tylko do wlasnego zamowienia
-  if (user && user.username !== order.username) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "You can add opinion only to your own order" });
-  }
-
-  const opinion = opinionRepository.create({
-    rating,
-    content,
-    order,
-  });
-
-  await opinionRepository.save(opinion);
-
-  return res.status(StatusCodes.CREATED).json(opinion);
 });
 
 export default router;
