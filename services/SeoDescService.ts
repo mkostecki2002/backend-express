@@ -9,7 +9,7 @@ export async function generateSeoDesc(product: Product): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You generate SEO-friendly product descriptions.",
+          content: "You generate SEO-friendly product descriptions in plain text.",
         },
         {
           role: "user",
@@ -20,7 +20,7 @@ Category: ${product.category?.name}
 Price: ${product.priceUnit}
 Weight: ${product.weightUnit}
 
-Generate HTML using <h1>, <p>, and <ul>.
+Write a compelling, plain text product description suitable for SEO.
           `,
         },
       ],
