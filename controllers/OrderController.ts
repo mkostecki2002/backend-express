@@ -20,8 +20,6 @@ const opinionRepository = AppDataSource.getRepository(Opinion);
 //Zamówienia
 router
   .route("/")
-  //pozniej sie doda weryfikacje JWT i role do endpointow
-  // na razie tylko dla get orders zrobilem
   .get(
     verifyAccess,
     requireRole(UserRole.Customer),
@@ -119,7 +117,7 @@ router
         });
       }
 
-      // przypisanie encji z bazy
+      //przypisanie encji z bazy
       item.product = existingProduct;
       item.unitPrice = existingProduct.priceUnit;
     }

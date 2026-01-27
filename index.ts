@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import express, { Request, Response } from "express";
+import cors from "cors"; // <--- 1. DODAJ IMPORT TUTAJ
 import "./controllers/OrderController";
 import ProductController, {
   validateProductsArray,
@@ -18,6 +19,9 @@ import { parse } from "csv-parse/sync";
 // Aplikacja Express
 const app = express();
 const PORT = 3000;
+
+// <--- 2. DODAJ TE LINIJKĘ (musi być przed trasami!)
+app.use(cors()); 
 
 app.use(express.json());
 app.use(express.text({ type: ["text/plain", "text/csv"] }));

@@ -7,7 +7,7 @@ export class Opinion {
   id!: number;
 
   @Column({ type: "int" })
-  rating!: number; // 1–5
+  rating!: number; //1–5
 
   @Column({ type: "text" })
   content!: string;

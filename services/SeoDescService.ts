@@ -9,7 +9,7 @@ export async function generateSeoDesc(product: Product): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You generate SEO-friendly HTML product descriptions.",
+          content: "You generate SEO-friendly product descriptions.",
         },
         {
           role: "user",
