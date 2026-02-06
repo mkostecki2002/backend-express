@@ -28,7 +28,12 @@ router
     (req: Request, res: Response) => {
       orderRepository
         .find({
-          relations: ["orderItems", "orderItems.product", "orderState"],
+          relations: [
+            "orderItems",
+            "orderItems.product",
+            "orderState",
+            "opinions",
+          ],
         })
         .then(orders => {
           res.status(StatusCodes.OK).json(orders);
@@ -302,7 +307,6 @@ router.get("/status/:name", async (req: Request, res: Response) => {
   }
 });
 
-// 4. KLIENT: Dodawanie opinii
 router.post("/:id/opinions", verifyAccess, async (req, res) => {
   const orderId = parseInt(req.params.id);
   const { rating, content } = req.body;
@@ -355,5 +359,35 @@ router.post("/:id/opinions", verifyAccess, async (req, res) => {
       .json({ message: "Error adding opinion" });
   }
 });
+// GET /orders/:id/opinions - Pobierz opinie dla danego zamówienia
+router.get(
+  "/:id/opinions",
+  verifyAccess,
+  async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id);
+
+    if (isNaN(orderId)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Invalid ID" });
+    }
+
+    try {
+      // Pobieramy opinie, gdzie order.id zgadza się z parametrem
+      const opinions = await opinionRepository.find({
+        where: { order: { id: orderId } },
+        relations: ["order"], // opcjonalne, jeśli chcesz wiedzieć czyje to
+        order: { createdAt: "DESC" },
+      });
+
+      res.status(StatusCodes.OK).json(opinions);
+    } catch (e) {
+      console.error(e);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error fetching opinions" });
+    }
+  },
+);
 
 export default router;
